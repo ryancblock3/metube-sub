@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to MeTube</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .form-section {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #e1e8ff;
+        }
+        
+        .form-section h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.2);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        
+        .videos-section {
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .videos-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .video-item {
+            padding: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            display: grid;
+            grid-template-columns: auto auto 1fr auto auto auto;
+            gap: 15px;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+        
+        .video-item:hover {
+            background: #f8fafc;
+        }
+        
+        .video-item:last-child {
+            border-bottom: none;
+        }
+        
+        .video-item input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+        
+        .video-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .video-title {
+            color: #2d3748;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .video-url {
+            color: #718096;
+            text-decoration: none;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+        }
+        
+        .video-url:hover {
+            color: #667eea;
+        }
+        
+        .video-duration {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .quality-select {
+            padding: 6px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            min-width: 80px;
+        }
+        
+        .video-thumbnail {
+            width: 120px;
+            height: 68px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .thumbnail-placeholder {
+            width: 120px;
+            height: 68px;
+            border-radius: 8px;
+            background: #f7fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0aec0;
+            font-size: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .video-status {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-pending {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .status-success {
+            background: #c6f6d5;
+            color: #2f855a;
+        }
+        
+        .status-error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .output-section {
+            background: #1a202c;
+            border-radius: 15px;
+            padding: 25px;
+        }
+        
+        .output-section h3 {
+            color: #e2e8f0;
+            margin-bottom: 15px;
+        }
+        
+        .log-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        
+        .log-info {
+            color: #90cdf4;
+        }
+        
+        .log-warning {
+            color: #f6e05e;
+        }
+        
+        .log-error {
+            color: #fc8181;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+        
+        .status-idle {
+            background: #cbd5e0;
+        }
+        
+        .status-running {
+            background: #48bb78;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-success { color: #48bb78; }
+        .stat-error { color: #f56565; }
+        .stat-total { color: #667eea; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+        
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>YouTube to MeTube</h1>
+            <p>Automate YouTube video downloads through MeTube</p>
+            <span id="status-indicator" class="status-indicator status-idle"></span>
+        </div>
+        
+        <div class="content">
+            <!-- Configuration Section -->
+            <div class="form-section">
+                <h3>Configuration</h3>
+                <div class="form-group">
+                    <label for="metube-url">MeTube URL</label>
+                    <input type="url" id="metube-url" value="http://192.168.1.76:8081" placeholder="http://your-metube-server:8081">
+                </div>
+            </div>
+            
+            <!-- Channel Processing Section -->
+            <div class="form-section">
+                <h3>Channel Processing</h3>
+                <div class="form-group">
+                    <label for="channel-url">YouTube Channel URL</label>
+                    <input type="url" id="channel-url" placeholder="https://www.youtube.com/@channelname">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="count">Video Count</label>
+                        <input type="number" id="count" value="5" min="1" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="quality">Quality</label>
+                        <select id="quality">
+                            <option value="best">Best</option>
+                            <option value="2160p">2160p (4K)</option>
+                            <option value="1440p">1440p (2K)</option>
+                            <option value="1080p">1080p (HD)</option>
+                            <option value="720p">720p</option>
+                            <option value="480p">480p</option>
+                            <option value="worst">Worst</option>
+                            <option value="audio">Audio Only</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="format">Format</label>
+                        <select id="format">
+                            <option value="any">Any</option>
+                            <option value="mp4">MP4</option>
+                            <option value="m4a">M4A</option>
+                            <option value="mp3">MP3</option>
+                            <option value="opus">Opus</option>
+                            <option value="wav">WAV</option>
+                            <option value="flac">FLAC</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="filter-content" checked>
+                    <label for="filter-content">Filter out member-only videos, Shorts, and livestreams</label>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn" id="fetch-btn" onclick="fetchVideos()">Fetch Videos</button>
+                    <button class="btn btn-success" id="submit-btn" onclick="submitVideos()" disabled>Submit to MeTube</button>
+                </div>
+            </div>
+            
+            <!-- Single Video Test Section -->
+            <div class="form-section">
+                <h3>Single Video Test</h3>
+                <div class="form-group">
+                    <label for="test-video-url">Test Video URL</label>
+                    <input type="url" id="test-video-url" placeholder="https://www.youtube.com/watch?v=VIDEO_ID">
+                </div>
+                <button class="btn btn-warning" id="test-btn" onclick="testSingleVideo()">Test Single Video</button>
+            </div>
+            
+            <!-- Videos Section -->
+            <div class="videos-section">
+                <h3>Found Videos</h3>
+                <div class="progress-bar" id="progress-bar" style="display: none;">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="videos-list" id="videos-list">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z"/>
+                        </svg>
+                        <p>No videos found yet. Enter a channel URL and click "Fetch Videos".</p>
+                    </div>
+                </div>
+                <div class="summary-stats" id="summary-stats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-number stat-success" id="success-count">0</div>
+                        <div>Successful</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number stat-error" id="error-count">0</div>
+                        <div>Failed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number stat-total" id="total-count">0</div>
+                        <div>Total</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Output Section -->
+            <div class="output-section">
+                <h3>Output Log</h3>
+                <div class="log-output" id="log-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentVideos = [];
+        let isRunning = false;
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            addLogEntry('Connected to server', 'info');
+        });
+
+        socket.on('log_message', function(data) {
+            addLogEntry(data.message, data.level);
+        });
+
+        socket.on('videos_found', function(data) {
+            displayVideos(data.videos, data.details);
+            document.getElementById('submit-btn').disabled = false;
+        });
+
+        socket.on('progress_update', function(data) {
+            updateProgress(data.current, data.total);
+        });
+
+        socket.on('video_result', function(data) {
+            updateVideoStatus(data.video_url, data.success);
+        });
+
+        socket.on('submission_complete', function(data) {
+            showSummaryStats(data.successful, data.failed, data.total);
+            hideProgress();
+        });
+
+        socket.on('operation_started', function() {
+            setRunningState(true);
+        });
+
+        socket.on('operation_finished', function() {
+            setRunningState(false);
+        });
+
+        socket.on('error', function(data) {
+            addLogEntry(data.message, 'error');
+        });
+
+        // UI Functions
+        function addLogEntry(message, level = 'info') {
+            const logOutput = document.getElementById('log-output');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${level}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function setRunningState(running) {
+            isRunning = running;
+            const statusIndicator = document.getElementById('status-indicator');
+            const buttons = ['fetch-btn', 'submit-btn', 'test-btn'];
+            
+            if (running) {
+                statusIndicator.className = 'status-indicator status-running';
+                buttons.forEach(id => document.getElementById(id).disabled = true);
+            } else {
+                statusIndicator.className = 'status-indicator status-idle';
+                buttons.forEach(id => document.getElementById(id).disabled = false);
+                if (currentVideos.length === 0) {
+                    document.getElementById('submit-btn').disabled = true;
+                }
+            }
+        }
+
+        function displayVideos(videos, details = {}) {
+            currentVideos = videos;
+            const videosList = document.getElementById('videos-list');
+            videosList.innerHTML = '';
+            
+            videos.forEach((video, index) => {
+                const detail = details[video] || {};
+                const title = detail.title || 'Loading...';
+                const duration = detail.duration || 'Unknown';
+                const suggestedQuality = detail.suggested_quality || 'best';
+                const videoId = detail.video_id || '';
+                const thumbnailUrls = detail.thumbnail_urls || [];
+                
+                const videoItem = document.createElement('div');
+                videoItem.className = 'video-item';
+                
+                // Create thumbnail element
+                let thumbnailHtml = '';
+                if (videoId && thumbnailUrls.length > 0) {
+                    thumbnailHtml = `<img class="video-thumbnail" src="${thumbnailUrls[0]}" 
+                                    onerror="this.onerror=null; this.src='${thumbnailUrls[1] || thumbnailUrls[0]}'" 
+                                    alt="Video thumbnail">`;
+                } else {
+                    thumbnailHtml = '<div class="thumbnail-placeholder">No thumbnail</div>';
+                }
+                
+                videoItem.innerHTML = `
+                    <input type="checkbox" id="video-${index}" checked>
+                    ${thumbnailHtml}
+                    <div class="video-info">
+                        <div class="video-title">${title}</div>
+                        <a href="${video}" target="_blank" class="video-url">${video}</a>
+                    </div>
+                    <div class="video-duration">${duration}</div>
+                    <select class="quality-select" id="quality-${index}">
+                        <option value="best" ${suggestedQuality === 'best' ? 'selected' : ''}>Best</option>
+                        <option value="2160p" ${suggestedQuality === '2160p' ? 'selected' : ''}>2160p</option>
+                        <option value="1440p" ${suggestedQuality === '1440p' ? 'selected' : ''}>1440p</option>
+                        <option value="1080p" ${suggestedQuality === '1080p' ? 'selected' : ''}>1080p</option>
+                        <option value="720p" ${suggestedQuality === '720p' ? 'selected' : ''}>720p</option>
+                        <option value="480p" ${suggestedQuality === '480p' ? 'selected' : ''}>480p</option>
+                        <option value="worst" ${suggestedQuality === 'worst' ? 'selected' : ''}>Worst</option>
+                        <option value="audio" ${suggestedQuality === 'audio' ? 'selected' : ''}>Audio</option>
+                    </select>
+                    <span class="video-status status-pending" id="status-${index}">Pending</span>
+                `;
+                videosList.appendChild(videoItem);
+            });
+        }
+
+        function updateVideoStatus(videoUrl, success) {
+            const videoIndex = currentVideos.indexOf(videoUrl);
+            if (videoIndex !== -1) {
+                const statusElement = document.getElementById(`status-${videoIndex}`);
+                if (success) {
+                    statusElement.textContent = 'Success';
+                    statusElement.className = 'video-status status-success';
+                } else {
+                    statusElement.textContent = 'Failed';
+                    statusElement.className = 'video-status status-error';
+                }
+            }
+        }
+
+        function updateProgress(current, total) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressFill = document.getElementById('progress-fill');
+            
+            progressBar.style.display = 'block';
+            const percentage = (current / total) * 100;
+            progressFill.style.width = `${percentage}%`;
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+
+        function showSummaryStats(successful, failed, total) {
+            document.getElementById('success-count').textContent = successful;
+            document.getElementById('error-count').textContent = failed;
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('summary-stats').style.display = 'grid';
+        }
+
+        // Action Functions
+        function fetchVideos() {
+            const channelUrl = document.getElementById('channel-url').value.trim();
+            if (!channelUrl) {
+                alert('Please enter a channel URL');
+                return;
+            }
+
+            const count = document.getElementById('count').value;
+            const filterContent = document.getElementById('filter-content').checked;
+
+            // Clear previous results
+            document.getElementById('videos-list').innerHTML = '';
+            document.getElementById('summary-stats').style.display = 'none';
+            document.getElementById('submit-btn').disabled = true;
+            
+            socket.emit('fetch_videos', {
+                channel_url: channelUrl,
+                count: count,
+                filter_content: filterContent
+            });
+        }
+
+        function submitVideos() {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            if (currentVideos.length === 0) {
+                alert('No videos to submit. Fetch videos first.');
+                return;
+            }
+
+            // Get selected videos with their individual quality settings
+            const selectedVideos = [];
+            currentVideos.forEach((video, index) => {
+                if (document.getElementById(`video-${index}`).checked) {
+                    const individualQuality = document.getElementById(`quality-${index}`).value;
+                    selectedVideos.push({
+                        index: index,
+                        url: video,
+                        quality: individualQuality
+                    });
+                }
+            });
+
+            if (selectedVideos.length === 0) {
+                alert('Please select at least one video to submit');
+                return;
+            }
+
+            const formatType = document.getElementById('format').value;
+
+            socket.emit('submit_videos', {
+                metube_url: metubeUrl,
+                format_type: formatType,
+                selected_videos: selectedVideos
+            });
+        }
+
+        function testSingleVideo() {
+            const videoUrl = document.getElementById('test-video-url').value.trim();
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            
+            if (!videoUrl) {
+                alert('Please enter a test video URL');
+                return;
+            }
+            
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            const quality = document.getElementById('quality').value;
+            const formatType = document.getElementById('format').value;
+
+            socket.emit('test_video', {
+                video_url: videoUrl,
+                metube_url: metubeUrl,
+                quality: quality,
+                format_type: formatType
+            });
+        }
+
+        function selectAllVideos() {
+            currentVideos.forEach((video, index) => {
+                document.getElementById(`video-${index}`).checked = true;
+            });
+        }
+
+        function selectNoneVideos() {
+            currentVideos.forEach((video, index) => {
+                document.getElementById(`video-${index}`).checked = false;
+            });
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter' && !isRunning) {
+                if (document.getElementById('channel-url').value.trim()) {
+                    fetchVideos();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
