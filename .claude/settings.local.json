@@ -6,7 +6,9 @@
       "Bash(git add:*)",
       "WebFetch(domain:github.com)",
       "Bash(python:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
     ],
     "deny": []
   }

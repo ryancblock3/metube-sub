@@ -121,17 +121,36 @@ class YouTubeChannelScraper:
                 try:
                     response = self.session.get(url)
                     if response.status_code == 200:
-                        # Look for channel ID in the page
-                        channel_id_pattern = r'"channelId":"([^"]+)"'
-                        match = re.search(channel_id_pattern, response.text)
-                        if match:
-                            return match.group(1)
+                        # Priority 1: Use og:url meta tag (most reliable for the actual channel)
+                        channel_id_pattern_meta = r'<meta property="og:url" content="https://www\.youtube\.com/channel/([^"]+)"'
+                        match_meta = re.search(channel_id_pattern_meta, response.text)
+                        if match_meta:
+                            print(f"Found channel ID via og:url meta tag: {match_meta.group(1)}")
+                            return match_meta.group(1)
                         
-                        # Alternative pattern
-                        channel_id_pattern2 = r'<meta property="og:url" content="https://www\.youtube\.com/channel/([^"]+)"'
-                        match2 = re.search(channel_id_pattern2, response.text)
-                        if match2:
-                            return match2.group(1)
+                        # Priority 2: Use canonical link (also reliable)
+                        canonical_pattern = r'<link rel="canonical" href="https://www\.youtube\.com/channel/([^"]+)"'
+                        match_canonical = re.search(canonical_pattern, response.text)
+                        if match_canonical:
+                            print(f"Found channel ID via canonical link: {match_canonical.group(1)}")
+                            return match_canonical.group(1)
+                        
+                        # Priority 3: Look for the main channel ID in JSON data (less reliable, can pick up related channels)
+                        # Only use this as a last resort and validate it
+                        channel_id_pattern = r'"channelId":"([^"]+)"'
+                        matches = re.findall(channel_id_pattern, response.text)
+                        if matches:
+                            # Try to validate which one is the correct channel by checking context
+                            for channel_id in matches:
+                                # Look for this channel ID in a more specific context
+                                context_pattern = rf'"channelId":"{re.escape(channel_id)}"[^}}]*"title":"[^"]*{re.escape(username)}'
+                                if re.search(context_pattern, response.text, re.IGNORECASE):
+                                    print(f"Found channel ID via contextual match: {channel_id}")
+                                    return channel_id
+                            
+                            # If no contextual match, take the first one (old behavior) but log it
+                            print(f"Warning: Using first channelId match without validation: {matches[0]} (found {len(matches)} total)")
+                            return matches[0]
                             
                 except Exception:
                     continue

@@ -684,6 +684,28 @@
             <!-- Downloaded Videos Management Section -->
             <div class="videos-section">
                 <h3>Downloaded Videos by Channel</h3>
+                
+                <!-- Auto-refresh Controls -->
+                <div class="form-section" style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 15px;">Auto-refresh Settings</h4>
+                    <div class="form-row">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="auto-refresh-enabled" checked onchange="toggleAutoRefresh()">
+                            <label for="auto-refresh-enabled">Enable auto-refresh</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="refresh-interval">Refresh interval (seconds)</label>
+                            <input type="number" id="refresh-interval" value="30" min="10" max="300" onchange="updateRefreshInterval()">
+                        </div>
+                        <div class="form-group">
+                            <label>Next refresh: <span id="next-refresh-time">--</span></label>
+                            <div style="margin-top: 5px;">
+                                <span id="auto-refresh-status" class="video-status status-pending">Auto-refresh disabled</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div style="margin-bottom: 20px;">
                     <button class="btn btn-warning" id="fetch-downloaded-btn" onclick="fetchDownloadedVideos()">Fetch Downloaded Videos</button>
                     <button class="btn" id="expand-all-btn" onclick="expandAllChannels()" style="display: none;">Expand All</button>
@@ -733,6 +755,13 @@
         let currentVideos = [];
         let downloadedVideos = [];
         let isRunning = false;
+        
+        // Auto-refresh variables
+        let autoRefreshTimer = null;
+        let autoRefreshCountdown = null;
+        let autoRefreshEnabled = true;
+        let refreshInterval = 30; // seconds
+        let lastDownloadedCount = 0;
 
         // Socket event handlers
         socket.on('connect', function() {
@@ -809,16 +838,24 @@
         function setRunningState(running) {
             isRunning = running;
             const statusIndicator = document.getElementById('status-indicator');
-            const buttons = ['fetch-btn', 'submit-btn', 'test-btn'];
+            const buttons = ['fetch-btn', 'submit-btn', 'test-btn', 'fetch-downloaded-btn'];
             
             if (running) {
                 statusIndicator.className = 'status-indicator status-running';
                 buttons.forEach(id => document.getElementById(id).disabled = true);
+                // Temporarily pause auto-refresh during operations
+                if (autoRefreshEnabled) {
+                    updateAutoRefreshStatus('Auto-refresh paused (operation running)', 'status-pending');
+                }
             } else {
                 statusIndicator.className = 'status-indicator status-idle';
                 buttons.forEach(id => document.getElementById(id).disabled = false);
                 if (currentVideos.length === 0) {
                     document.getElementById('submit-btn').disabled = true;
+                }
+                // Resume auto-refresh status display
+                if (autoRefreshEnabled) {
+                    updateAutoRefreshStatus('Auto-refresh enabled', 'status-success');
                 }
             }
         }
@@ -1007,10 +1044,12 @@
         }
 
         // Downloaded videos management functions
-        function fetchDownloadedVideos() {
+        function fetchDownloadedVideos(isAutoRefresh = false) {
             const metubeUrl = document.getElementById('metube-url').value.trim();
             if (!metubeUrl) {
-                alert('Please enter a MeTube URL');
+                if (!isAutoRefresh) {
+                    alert('Please enter a MeTube URL');
+                }
                 return;
             }
 
@@ -1026,6 +1065,17 @@
         }
 
         function displayDownloadedVideos(videos) {
+            // Check if this is a change from auto-refresh
+            const isNewContent = videos.length !== lastDownloadedCount;
+            if (isNewContent && lastDownloadedCount > 0) {
+                if (videos.length > lastDownloadedCount) {
+                    addLogEntry(`Auto-refresh found ${videos.length - lastDownloadedCount} new downloaded video(s)`, 'info');
+                } else if (videos.length < lastDownloadedCount) {
+                    addLogEntry(`Auto-refresh detected ${lastDownloadedCount - videos.length} video(s) removed`, 'info');
+                }
+            }
+            lastDownloadedCount = videos.length;
+            
             downloadedVideos = videos;
             const container = document.getElementById('downloaded-channels-container');
             const emptyState = document.getElementById('empty-channels-state');
@@ -1087,7 +1137,14 @@
             section.className = 'channel-section';
             section.id = `channel-${channelName.replace(/[^a-zA-Z0-9]/g, '-')}`;
             
-            const totalSize = videos.reduce((sum, v) => sum + (v.filesize || 0), 0);
+            const totalSize = videos.reduce((sum, v) => {
+                const filesize = v.filesize;
+                if (filesize === 'unknown' || filesize === null || filesize === undefined) {
+                    return sum;
+                }
+                const size = typeof filesize === 'string' ? parseFloat(filesize) : filesize;
+                return sum + (isNaN(size) ? 0 : size);
+            }, 0);
             const channelInitials = getChannelInitials(channelName);
             const avatarColor = getChannelColor(channelName);
             
@@ -1100,7 +1157,7 @@
                         <div class="channel-details">
                             <h3>${channelName}</h3>
                             <div class="channel-stats">
-                                ${videos.length} video${videos.length !== 1 ? 's' : ''} • ${formatFileSize(totalSize)}
+                                ${videos.length} video${videos.length !== 1 ? 's' : ''} • ${totalSize > 0 ? formatFileSize(totalSize) : 'Size Unknown'}
                             </div>
                         </div>
                     </div>
@@ -1122,7 +1179,7 @@
                         <div class="summary-label">Videos</div>
                     </div>
                     <div class="summary-item">
-                        <div class="summary-number">${formatFileSize(totalSize)}</div>
+                        <div class="summary-number">${totalSize > 0 ? formatFileSize(totalSize) : 'Size Unknown'}</div>
                         <div class="summary-label">Total Size</div>
                     </div>
                     <div class="summary-item">
@@ -1469,6 +1526,107 @@
             });
         }
 
+        // Auto-refresh functionality
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = document.getElementById('auto-refresh-enabled').checked;
+            
+            if (autoRefreshEnabled) {
+                startAutoRefresh();
+                updateAutoRefreshStatus('Auto-refresh enabled', 'status-success');
+                addLogEntry('Auto-refresh enabled', 'info');
+            } else {
+                stopAutoRefresh();
+                updateAutoRefreshStatus('Auto-refresh disabled', 'status-pending');
+                addLogEntry('Auto-refresh disabled', 'info');
+            }
+        }
+        
+        function updateRefreshInterval() {
+            const newInterval = parseInt(document.getElementById('refresh-interval').value);
+            if (newInterval >= 10 && newInterval <= 300) {
+                refreshInterval = newInterval;
+                if (autoRefreshEnabled) {
+                    // Restart with new interval
+                    stopAutoRefresh();
+                    startAutoRefresh();
+                }
+                addLogEntry(`Auto-refresh interval updated to ${refreshInterval} seconds`, 'info');
+            }
+        }
+        
+        function startAutoRefresh() {
+            if (!autoRefreshEnabled) return;
+            
+            stopAutoRefresh(); // Clear any existing timers
+            
+            // Start the auto-refresh timer
+            autoRefreshTimer = setTimeout(() => {
+                if (autoRefreshEnabled && !isRunning) {
+                    addLogEntry('Auto-refreshing downloaded videos...', 'info');
+                    fetchDownloadedVideos(true); // Pass true to indicate auto-refresh
+                }
+                startAutoRefresh(); // Schedule next refresh
+            }, refreshInterval * 1000);
+            
+            // Start countdown display
+            startCountdown();
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearTimeout(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            if (autoRefreshCountdown) {
+                clearInterval(autoRefreshCountdown);
+                autoRefreshCountdown = null;
+            }
+            document.getElementById('next-refresh-time').textContent = '--';
+        }
+        
+        function startCountdown() {
+            let secondsLeft = refreshInterval;
+            
+            const updateCountdown = () => {
+                if (!autoRefreshEnabled) {
+                    document.getElementById('next-refresh-time').textContent = '--';
+                    return;
+                }
+                
+                const minutes = Math.floor(secondsLeft / 60);
+                const seconds = secondsLeft % 60;
+                const timeString = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                document.getElementById('next-refresh-time').textContent = timeString;
+                
+                secondsLeft--;
+                
+                if (secondsLeft < 0) {
+                    clearInterval(autoRefreshCountdown);
+                    return;
+                }
+            };
+            
+            updateCountdown(); // Initial call
+            autoRefreshCountdown = setInterval(updateCountdown, 1000);
+        }
+        
+        function updateAutoRefreshStatus(text, statusClass) {
+            const statusElement = document.getElementById('auto-refresh-status');
+            statusElement.textContent = text;
+            statusElement.className = `video-status ${statusClass}`;
+        }
+        
+        // Initialize auto-refresh when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start auto-refresh if enabled
+            if (autoRefreshEnabled) {
+                setTimeout(() => {
+                    startAutoRefresh();
+                    updateAutoRefreshStatus('Auto-refresh enabled', 'status-success');
+                }, 2000); // Wait 2 seconds after page load
+            }
+        });
+        
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.key === 'Enter' && !isRunning) {

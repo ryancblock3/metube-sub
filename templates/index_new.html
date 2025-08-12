@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to MeTube</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff6b6b'><path d='M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z'/></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --bg-quaternary: #0e3460;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-primary: #ff6b6b;
+            --accent-secondary: #4ecdc4;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-error: #ef4444;
+            --border-color: #27272a;
+            --hover-bg: #27272a;
+            --card-bg: #18181b;
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+            --border-radius: 0.75rem;
+            --sidebar-width: 240px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Layout Structure */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 50;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .sidebar-logo svg {
+            width: 2rem;
+            height: 2rem;
+            fill: var(--accent-primary);
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section-title {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-item:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .nav-item svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: currentColor;
+        }
+
+        .nav-badge {
+            background: var(--accent-primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.375rem;
+            margin-left: auto;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            background: var(--bg-primary);
+        }
+
+        .main-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .main-header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .main-header p {
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .content-area {
+            padding: 2rem;
+        }
+
+        /* Cards and Sections */
+        .section-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .video-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .video-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--accent-primary);
+        }
+
+        .video-thumbnail {
+            position: relative;
+            width: 100%;
+            height: 160px;
+            overflow: hidden;
+        }
+
+        .video-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .video-card:hover .video-thumbnail img {
+            transform: scale(1.05);
+        }
+
+        .video-duration {
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .video-info {
+            padding: 1rem;
+        }
+
+        .video-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .video-size {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .video-date {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e55555;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--hover-bg);
+        }
+
+        .btn-success {
+            background: var(--accent-success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-warning {
+            background: var(--accent-warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-danger {
+            background: var(--accent-error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+        }
+
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-checkbox input {
+            accent-color: var(--accent-primary);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-warning);
+        }
+
+        .status-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-error);
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 0.25rem;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Log Terminal */
+        .log-terminal {
+            background: #000;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 0.25rem;
+            word-wrap: break-word;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-warning {
+            color: #fbbf24;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 4rem;
+            height: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .video-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 1rem;
+            }
+
+            .content-area {
+                padding: 1rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Hidden utility */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--border-color);
+            border-top: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="#" class="sidebar-logo">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z"/>
+                    </svg>
+                    YouTube to MeTube
+                </a>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Main</div>
+                    <button class="nav-item active" onclick="showSection('dashboard')">
+                        <svg viewBox="0 0 24 24"><path d="M3,13H11V3H3M3,21H11V15H3M13,21H21V11H13M13,3V9H21V3"/></svg>
+                        Dashboard
+                    </button>
+                    <button class="nav-item" onclick="showSection('fetch')">
+                        <svg viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6Z"/></svg>
+                        Fetch Videos
+                    </button>
+                    <button class="nav-item" onclick="showSection('downloads')">
+                        <svg viewBox="0 0 24 24"><path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/></svg>
+                        Downloads
+                        <span class="nav-badge" id="downloads-count">0</span>
+                    </button>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Tools</div>
+                    <button class="nav-item" onclick="showSection('settings')">
+                        <svg viewBox="0 0 24 24"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>
+                        Settings
+                    </button>
+                    <button class="nav-item" onclick="showSection('logs')">
+                        <svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/></svg>
+                        Logs
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="main-header">
+                <h1 id="main-title">Dashboard</h1>
+                <p id="main-subtitle">Overview of your YouTube to MeTube automation</p>
+            </div>
+
+            <div class="content-area">
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="section">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-videos-stat">0</div>
+                            <div class="stat-label">Total Videos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-channels-stat">0</div>
+                            <div class="stat-label">Channels</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-size-stat">0 GB</div>
+                            <div class="stat-label">Total Size</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="auto-refresh-stat">
+                                <span class="status-badge status-success">Enabled</span>
+                            </div>
+                            <div class="stat-label">Auto-refresh</div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Recent Downloads</h3>
+                            <button class="btn btn-secondary" onclick="showSection('downloads')">View All</button>
+                        </div>
+                        <div id="recent-downloads" class="video-grid">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24"><path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/></svg>
+                                <p>No downloads yet. Start by fetching videos from a channel.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fetch Videos Section -->
+                <div id="fetch-section" class="section hidden">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Channel Processing</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">YouTube Channel URL</label>
+                            <input type="url" class="form-input" id="channel-url" placeholder="https://www.youtube.com/@channelname">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label class="form-label">Video Count</label>
+                                <input type="number" class="form-input" id="count" value="5" min="1" max="50">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Quality</label>
+                                <select class="form-select" id="quality">
+                                    <option value="best">Best</option>
+                                    <option value="2160p">2160p (4K)</option>
+                                    <option value="1440p">1440p (2K)</option>
+                                    <option value="1080p">1080p (HD)</option>
+                                    <option value="720p">720p</option>
+                                    <option value="480p">480p</option>
+                                    <option value="worst">Worst</option>
+                                    <option value="audio">Audio Only</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Format</label>
+                                <select class="form-select" id="format">
+                                    <option value="any">Any</option>
+                                    <option value="mp4">MP4</option>
+                                    <option value="m4a">M4A</option>
+                                    <option value="mp3">MP3</option>
+                                    <option value="opus">Opus</option>
+                                    <option value="wav">WAV</option>
+                                    <option value="flac">FLAC</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-checkbox">
+                            <input type="checkbox" id="filter-content" checked>
+                            <label>Filter out member-only videos, Shorts, and livestreams</label>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-primary" id="fetch-btn" onclick="fetchVideos()">
+                                <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4Z"/></svg>
+                                Fetch Videos
+                            </button>
+                            <button class="btn btn-success" id="submit-btn" onclick="submitVideos()" disabled>
+                                <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/></svg>
+                                Submit to MeTube
+                            </button>
+                        </div>
+
+                        <div class="progress-bar hidden" id="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Single Video Test</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Test Video URL</label>
+                            <input type="url" class="form-input" id="test-video-url" placeholder="https://www.youtube.com/watch?v=VIDEO_ID">
+                        </div>
+                        
+                        <button class="btn btn-warning" id="test-btn" onclick="testSingleVideo()">
+                            <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M12,2C13.1,2 14,2.9 14,4C14,5.1 13.1,6 12,6C10.9,6 10,5.1 10,4C10,2.9 10.9,2 12,2M21,9V7L15,1H5C3.89,1 3,1.89 3,3V21A2,2 0 0,0 5,23H19A2,2 0 0,0 21,21V9M19,21H5V3H13V9H19V21Z"/></svg>
+                            Test Single Video
+                        </button>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Found Videos</h3>
+                        </div>
+                        
+                        <div id="videos-list" class="video-grid">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24"><path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z"/></svg>
+                                <p>No videos found yet. Enter a channel URL and click "Fetch Videos".</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Downloads Section -->
+                <div id="downloads-section" class="section hidden">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Auto-refresh Settings</h3>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="form-checkbox">
+                                <input type="checkbox" id="auto-refresh-enabled" checked onchange="toggleAutoRefresh()">
+                                <label>Enable auto-refresh</label>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Refresh interval (seconds)</label>
+                                <input type="number" class="form-input" id="refresh-interval" value="30" min="10" max="300" onchange="updateRefreshInterval()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Next refresh</label>
+                                <div class="status-badge status-pending" id="auto-refresh-status">Auto-refresh disabled</div>
+                                <div style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.875rem;" id="next-refresh-time">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">Downloaded Videos</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-secondary btn-small" onclick="fetchDownloadedVideos()">
+                                    <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                                    Refresh
+                                </button>
+                                <button class="btn btn-danger btn-small" onclick="clearMetubeHistory()">
+                                    <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>
+                                    Clear History
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="downloaded-videos-grid" class="video-grid">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24"><path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/></svg>
+                                <p>No downloaded videos loaded. Click "Refresh" to see your MeTube downloads.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settings-section" class="section hidden">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">MeTube Configuration</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">MeTube URL</label>
+                            <input type="url" class="form-input" id="metube-url" value="http://192.168.1.76:8081" placeholder="http://your-metube-server:8081">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Section -->
+                <div id="logs-section" class="section hidden">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title">System Logs</h3>
+                            <button class="btn btn-secondary btn-small" onclick="clearLogs()">
+                                <svg viewBox="0 0 24 24" style="width: 1rem; height: 1rem;"><path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>
+                                Clear Logs
+                            </button>
+                        </div>
+                        
+                        <div class="log-terminal" id="log-output"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentVideos = [];
+        let downloadedVideos = [];
+        let isRunning = false;
+        
+        // Auto-refresh variables
+        let autoRefreshTimer = null;
+        let autoRefreshCountdown = null;
+        let autoRefreshEnabled = true;
+        let refreshInterval = 30;
+        let lastDownloadedCount = 0;
+
+        // Navigation
+        function showSection(sectionName) {
+            // Update active nav item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update main header
+            const titles = {
+                'dashboard': { title: 'Dashboard', subtitle: 'Overview of your YouTube to MeTube automation' },
+                'fetch': { title: 'Fetch Videos', subtitle: 'Search and download videos from YouTube channels' },
+                'downloads': { title: 'Downloads', subtitle: 'Manage your downloaded videos' },
+                'settings': { title: 'Settings', subtitle: 'Configure MeTube connection and preferences' },
+                'logs': { title: 'Logs', subtitle: 'View system activity and debug information' }
+            };
+
+            document.getElementById('main-title').textContent = titles[sectionName].title;
+            document.getElementById('main-subtitle').textContent = titles[sectionName].subtitle;
+
+            // Show/hide sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(`${sectionName}-section`).classList.remove('hidden');
+        }
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            addLogEntry('Connected to server', 'info');
+        });
+
+        // Socket event handlers
+        socket.on('log_message', function(data) {
+            addLogEntry(data.message, data.level);
+        });
+
+        socket.on('videos_found', function(data) {
+            displayVideos(data.videos, data.details);
+            document.getElementById('submit-btn').disabled = false;
+        });
+
+        socket.on('progress_update', function(data) {
+            updateProgress(data.current, data.total);
+        });
+
+        socket.on('video_result', function(data) {
+            updateVideoStatus(data.video_url, data.success);
+        });
+
+        socket.on('submission_complete', function(data) {
+            hideProgress();
+        });
+
+        socket.on('operation_started', function() {
+            setRunningState(true);
+        });
+
+        socket.on('operation_finished', function() {
+            setRunningState(false);
+        });
+
+        socket.on('error', function(data) {
+            addLogEntry(data.message, 'error');
+        });
+
+        socket.on('downloaded_videos', function(data) {
+            displayDownloadedVideos(data.videos);
+        });
+
+        socket.on('video_deleted', function(data) {
+            if (data.success) {
+                addLogEntry('Video deleted successfully', 'info');
+                fetchDownloadedVideos(true);
+            } else {
+                addLogEntry('Failed to delete video', 'error');
+            }
+        });
+
+        socket.on('history_cleared', function(data) {
+            if (data.success) {
+                addLogEntry('MeTube history cleared successfully', 'info');
+                fetchDownloadedVideos(true);
+            } else {
+                addLogEntry('Failed to clear MeTube history', 'warning');
+            }
+        });
+
+        // UI Functions
+        function addLogEntry(message, level = 'info') {
+            const logOutput = document.getElementById('log-output');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${level}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('log-output').innerHTML = '';
+        }
+
+        function setRunningState(running) {
+            isRunning = running;
+            const buttons = ['fetch-btn', 'submit-btn', 'test-btn'];
+            
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.disabled = running;
+                    if (running) {
+                        btn.innerHTML = btn.innerHTML.replace(/^[^<]*/, '') || '';
+                        btn.insertAdjacentHTML('afterbegin', '<div class="spinner"></div>');
+                    } else {
+                        const spinner = btn.querySelector('.spinner');
+                        if (spinner) spinner.remove();
+                    }
+                }
+            });
+        }
+
+        function displayVideos(videos, details = {}) {
+            currentVideos = videos;
+            const videosList = document.getElementById('videos-list');
+            videosList.innerHTML = '';
+            
+            if (videos.length === 0) {
+                videosList.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z"/></svg>
+                        <p>No videos found. Try a different channel or check your filters.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            videos.forEach((video, index) => {
+                const detail = details[video] || {};
+                const title = detail.title || 'Loading...';
+                const duration = detail.duration || 'Unknown';
+                const suggestedQuality = detail.suggested_quality || 'best';
+                const videoId = detail.video_id || '';
+                const thumbnailUrls = detail.thumbnail_urls || [];
+                
+                const videoCard = document.createElement('div');
+                videoCard.className = 'video-card';
+                
+                let thumbnailHtml = '';
+                if (videoId && thumbnailUrls.length > 0) {
+                    thumbnailHtml = `
+                        <div class="video-thumbnail">
+                            <img src="${thumbnailUrls[0]}" 
+                                 onerror="this.onerror=null; this.src='${thumbnailUrls[1] || thumbnailUrls[0]}'" 
+                                 alt="Video thumbnail">
+                            <div class="video-duration">${duration}</div>
+                        </div>
+                    `;
+                } else {
+                    thumbnailHtml = `
+                        <div class="video-thumbnail" style="background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                            <svg viewBox="0 0 24 24" style="width: 3rem; height: 3rem;"><path d="M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z"/></svg>
+                        </div>
+                    `;
+                }
+                
+                videoCard.innerHTML = `
+                    ${thumbnailHtml}
+                    <div class="video-info">
+                        <div class="video-title">${title}</div>
+                        <div class="video-meta">
+                            <select class="form-select" id="quality-${index}" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                <option value="best" ${suggestedQuality === 'best' ? 'selected' : ''}>Best</option>
+                                <option value="2160p" ${suggestedQuality === '2160p' ? 'selected' : ''}>2160p</option>
+                                <option value="1440p" ${suggestedQuality === '1440p' ? 'selected' : ''}>1440p</option>
+                                <option value="1080p" ${suggestedQuality === '1080p' ? 'selected' : ''}>1080p</option>
+                                <option value="720p" ${suggestedQuality === '720p' ? 'selected' : ''}>720p</option>
+                                <option value="480p" ${suggestedQuality === '480p' ? 'selected' : ''}>480p</option>
+                                <option value="worst" ${suggestedQuality === 'worst' ? 'selected' : ''}>Worst</option>
+                                <option value="audio" ${suggestedQuality === 'audio' ? 'selected' : ''}>Audio</option>
+                            </select>
+                        </div>
+                        <div class="video-actions">
+                            <label class="form-checkbox">
+                                <input type="checkbox" id="video-${index}" checked>
+                                <span>Include</span>
+                            </label>
+                            <span class="status-badge status-pending" id="status-${index}">Pending</span>
+                        </div>
+                    </div>
+                `;
+                videosList.appendChild(videoCard);
+            });
+        }
+
+        function displayDownloadedVideos(videos) {
+            const isNewContent = videos.length !== lastDownloadedCount;
+            if (isNewContent && lastDownloadedCount > 0) {
+                if (videos.length > lastDownloadedCount) {
+                    addLogEntry(`Found ${videos.length - lastDownloadedCount} new downloaded video(s)`, 'info');
+                } else if (videos.length < lastDownloadedCount) {
+                    addLogEntry(`Detected ${lastDownloadedCount - videos.length} video(s) removed`, 'info');
+                }
+            }
+            lastDownloadedCount = videos.length;
+            
+            downloadedVideos = videos;
+            const videosGrid = document.getElementById('downloaded-videos-grid');
+            const downloadsCount = document.getElementById('downloads-count');
+            
+            // Update nav badge
+            downloadsCount.textContent = videos.length;
+            
+            // Update dashboard stats
+            updateDashboardStats(videos);
+            
+            if (videos.length === 0) {
+                videosGrid.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/></svg>
+                        <p>No downloaded videos found. Start by fetching and downloading some videos.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            videosGrid.innerHTML = '';
+            
+            videos.forEach(video => {
+                const videoId = extractVideoId(video.url);
+                const videoCard = document.createElement('div');
+                videoCard.className = 'video-card';
+                
+                let thumbnailHtml = '';
+                if (videoId) {
+                    const thumbnailUrls = [
+                        `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                    ];
+                    thumbnailHtml = `
+                        <div class="video-thumbnail">
+                            <img src="${thumbnailUrls[0]}" 
+                                 onerror="this.onerror=null; this.src='${thumbnailUrls[1]}'" 
+                                 alt="Video thumbnail">
+                        </div>
+                    `;
+                } else {
+                    thumbnailHtml = `
+                        <div class="video-thumbnail" style="background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                            <svg viewBox="0 0 24 24" style="width: 3rem; height: 3rem;"><path d="M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z"/></svg>
+                        </div>
+                    `;
+                }
+                
+                videoCard.innerHTML = `
+                    ${thumbnailHtml}
+                    <div class="video-info">
+                        <div class="video-title">${video.title}</div>
+                        <div class="video-meta">
+                            <span class="video-size">${formatFileSize(video.filesize)}</span>
+                            <span class="video-date">${formatTimestamp(video.timestamp)}</span>
+                        </div>
+                        <div class="video-actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteVideo('${video.id}', '${video.filename}', '${video.filepath || video.filename}')">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                videosGrid.appendChild(videoCard);
+            });
+            
+            // Update recent downloads on dashboard
+            updateRecentDownloads(videos.slice(0, 6));
+        }
+
+        function updateDashboardStats(videos) {
+            const totalVideos = videos.length;
+            const channels = [...new Set(videos.map(v => {
+                const filepath = v.filepath || v.filename;
+                return filepath.includes('/') ? filepath.split('/')[0] : (v.folder || 'Unknown');
+            }))].length;
+            
+            let totalSize = 0;
+            videos.forEach(v => {
+                const filesize = v.filesize;
+                if (filesize !== 'unknown' && filesize !== null && filesize !== undefined) {
+                    const size = typeof filesize === 'string' ? parseFloat(filesize) : filesize;
+                    if (!isNaN(size)) totalSize += size;
+                }
+            });
+            
+            document.getElementById('total-videos-stat').textContent = totalVideos;
+            document.getElementById('total-channels-stat').textContent = channels;
+            document.getElementById('total-size-stat').textContent = formatFileSize(totalSize);
+        }
+
+        function updateRecentDownloads(recentVideos) {
+            const recentContainer = document.getElementById('recent-downloads');
+            
+            if (recentVideos.length === 0) {
+                recentContainer.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/></svg>
+                        <p>No recent downloads to show.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            recentContainer.innerHTML = '';
+            
+            recentVideos.forEach(video => {
+                const videoId = extractVideoId(video.url);
+                const videoCard = document.createElement('div');
+                videoCard.className = 'video-card';
+                
+                let thumbnailHtml = '';
+                if (videoId) {
+                    thumbnailHtml = `
+                        <div class="video-thumbnail">
+                            <img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" alt="Thumbnail">
+                        </div>
+                    `;
+                } else {
+                    thumbnailHtml = `
+                        <div class="video-thumbnail" style="background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center;">
+                            <svg viewBox="0 0 24 24" style="width: 2rem; height: 2rem; fill: var(--text-muted);"><path d="M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z"/></svg>
+                        </div>
+                    `;
+                }
+                
+                videoCard.innerHTML = `
+                    ${thumbnailHtml}
+                    <div class="video-info">
+                        <div class="video-title">${video.title}</div>
+                        <div class="video-meta">
+                            <span class="video-size">${formatFileSize(video.filesize)}</span>
+                        </div>
+                    </div>
+                `;
+                recentContainer.appendChild(videoCard);
+            });
+        }
+
+        // Action Functions
+        function fetchVideos() {
+            const channelUrl = document.getElementById('channel-url').value.trim();
+            if (!channelUrl) {
+                alert('Please enter a channel URL');
+                return;
+            }
+
+            const count = document.getElementById('count').value;
+            const filterContent = document.getElementById('filter-content').checked;
+
+            document.getElementById('videos-list').innerHTML = `
+                <div class="empty-state">
+                    <div class="spinner" style="width: 2rem; height: 2rem; margin: 0 auto 1rem;"></div>
+                    <p>Fetching videos...</p>
+                </div>
+            `;
+            document.getElementById('submit-btn').disabled = true;
+            
+            socket.emit('fetch_videos', {
+                channel_url: channelUrl,
+                count: count,
+                filter_content: filterContent
+            });
+        }
+
+        function submitVideos() {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            if (currentVideos.length === 0) {
+                alert('No videos to submit. Fetch videos first.');
+                return;
+            }
+
+            const selectedVideos = [];
+            currentVideos.forEach((video, index) => {
+                if (document.getElementById(`video-${index}`).checked) {
+                    const individualQuality = document.getElementById(`quality-${index}`).value;
+                    selectedVideos.push({
+                        index: index,
+                        url: video,
+                        quality: individualQuality
+                    });
+                }
+            });
+
+            if (selectedVideos.length === 0) {
+                alert('Please select at least one video to submit');
+                return;
+            }
+
+            const formatType = document.getElementById('format').value;
+
+            socket.emit('submit_videos', {
+                metube_url: metubeUrl,
+                format_type: formatType,
+                selected_videos: selectedVideos
+            });
+        }
+
+        function testSingleVideo() {
+            const videoUrl = document.getElementById('test-video-url').value.trim();
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            
+            if (!videoUrl) {
+                alert('Please enter a test video URL');
+                return;
+            }
+            
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            const quality = document.getElementById('quality').value;
+            const formatType = document.getElementById('format').value;
+
+            socket.emit('test_video', {
+                video_url: videoUrl,
+                metube_url: metubeUrl,
+                quality: quality,
+                format_type: formatType
+            });
+        }
+
+        function fetchDownloadedVideos(isAutoRefresh = false) {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                if (!isAutoRefresh) {
+                    alert('Please enter a MeTube URL');
+                }
+                return;
+            }
+
+            socket.emit('fetch_downloaded', {
+                metube_url: metubeUrl
+            });
+        }
+
+        function deleteVideo(videoId, filename, filepath) {
+            const displayName = filepath && filepath !== filename ? filepath : filename;
+            if (!confirm(`Are you sure you want to delete "${displayName}"?`)) {
+                return;
+            }
+
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            socket.emit('delete_video', {
+                metube_url: metubeUrl,
+                video_id: videoId,
+                filename: filename,
+                filepath: filepath || filename
+            });
+        }
+
+        function clearMetubeHistory() {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to clear the entire MeTube download history? This cannot be undone!')) {
+                return;
+            }
+
+            socket.emit('clear_history', {
+                metube_url: metubeUrl
+            });
+        }
+
+        // Auto-refresh functionality
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = document.getElementById('auto-refresh-enabled').checked;
+            
+            if (autoRefreshEnabled) {
+                startAutoRefresh();
+                updateAutoRefreshStatus('Auto-refresh enabled', 'status-success');
+                addLogEntry('Auto-refresh enabled', 'info');
+            } else {
+                stopAutoRefresh();
+                updateAutoRefreshStatus('Auto-refresh disabled', 'status-pending');
+                addLogEntry('Auto-refresh disabled', 'info');
+            }
+        }
+        
+        function updateRefreshInterval() {
+            const newInterval = parseInt(document.getElementById('refresh-interval').value);
+            if (newInterval >= 10 && newInterval <= 300) {
+                refreshInterval = newInterval;
+                if (autoRefreshEnabled) {
+                    stopAutoRefresh();
+                    startAutoRefresh();
+                }
+                addLogEntry(`Auto-refresh interval updated to ${refreshInterval} seconds`, 'info');
+            }
+        }
+        
+        function startAutoRefresh() {
+            if (!autoRefreshEnabled) return;
+            
+            stopAutoRefresh();
+            
+            autoRefreshTimer = setTimeout(() => {
+                if (autoRefreshEnabled && !isRunning) {
+                    addLogEntry('Auto-refreshing downloaded videos...', 'info');
+                    fetchDownloadedVideos(true);
+                }
+                startAutoRefresh();
+            }, refreshInterval * 1000);
+            
+            startCountdown();
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearTimeout(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            if (autoRefreshCountdown) {
+                clearInterval(autoRefreshCountdown);
+                autoRefreshCountdown = null;
+            }
+            document.getElementById('next-refresh-time').textContent = '--';
+        }
+        
+        function startCountdown() {
+            let secondsLeft = refreshInterval;
+            
+            const updateCountdown = () => {
+                if (!autoRefreshEnabled) {
+                    document.getElementById('next-refresh-time').textContent = '--';
+                    return;
+                }
+                
+                const minutes = Math.floor(secondsLeft / 60);
+                const seconds = secondsLeft % 60;
+                const timeString = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+                document.getElementById('next-refresh-time').textContent = timeString;
+                
+                secondsLeft--;
+                
+                if (secondsLeft < 0) {
+                    clearInterval(autoRefreshCountdown);
+                    return;
+                }
+            };
+            
+            updateCountdown();
+            autoRefreshCountdown = setInterval(updateCountdown, 1000);
+        }
+        
+        function updateAutoRefreshStatus(text, statusClass) {
+            const statusElement = document.getElementById('auto-refresh-status');
+            statusElement.textContent = text;
+            statusElement.className = `status-badge ${statusClass}`;
+            
+            // Update dashboard stat
+            const dashboardStat = document.getElementById('auto-refresh-stat');
+            if (dashboardStat) {
+                dashboardStat.innerHTML = `<span class="status-badge ${statusClass}">${autoRefreshEnabled ? 'Enabled' : 'Disabled'}</span>`;
+            }
+        }
+
+        // Utility functions
+        function extractVideoId(url) {
+            if (!url) return '';
+            const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            return match ? match[1] : '';
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0 || bytes === null || bytes === undefined || bytes === 'unknown') {
+                return 'Size Unknown';
+            }
+            
+            if (typeof bytes === 'string') {
+                if (bytes === 'unknown') return 'Size Unknown';
+                bytes = parseFloat(bytes);
+                if (isNaN(bytes)) return 'Size Unknown';
+            }
+            
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp || timestamp === 'Unknown' || timestamp === null || timestamp === undefined) {
+                return 'Unknown';
+            }
+            
+            let date;
+            if (typeof timestamp === 'string') {
+                date = new Date(timestamp);
+                if (isNaN(date.getTime())) {
+                    const numTimestamp = parseFloat(timestamp);
+                    if (!isNaN(numTimestamp)) {
+                        date = convertTimestampToDate(numTimestamp);
+                    }
+                }
+            } else if (typeof timestamp === 'number') {
+                date = convertTimestampToDate(timestamp);
+            } else {
+                return 'Unknown';
+            }
+            
+            if (isNaN(date.getTime())) {
+                return 'Unknown';
+            }
+            
+            return date.toLocaleDateString();
+        }
+
+        function convertTimestampToDate(timestamp) {
+            if (timestamp > 1000000000000000000) {
+                return new Date(timestamp / 1000000);
+            } else if (timestamp > 1000000000000) {
+                return new Date(timestamp);
+            } else {
+                return new Date(timestamp * 1000);
+            }
+        }
+
+        function updateProgress(current, total) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressFill = document.getElementById('progress-fill');
+            
+            progressBar.classList.remove('hidden');
+            const percentage = (current / total) * 100;
+            progressFill.style.width = `${percentage}%`;
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-bar').classList.add('hidden');
+        }
+
+        function updateVideoStatus(videoUrl, success) {
+            const videoIndex = currentVideos.indexOf(videoUrl);
+            if (videoIndex !== -1) {
+                const statusElement = document.getElementById(`status-${videoIndex}`);
+                if (statusElement) {
+                    if (success) {
+                        statusElement.textContent = 'Success';
+                        statusElement.className = 'status-badge status-success';
+                    } else {
+                        statusElement.textContent = 'Failed';
+                        statusElement.className = 'status-badge status-error';
+                    }
+                }
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            if (autoRefreshEnabled) {
+                setTimeout(() => {
+                    startAutoRefresh();
+                    updateAutoRefreshStatus('Auto-refresh enabled', 'status-success');
+                }, 2000);
+            }
+            
+            // Initial load
+            fetchDownloadedVideos(true);
+        });
+    </script>
+</body>
+</html>

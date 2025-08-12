@@ -12,6 +12,7 @@ import time
 import json
 import re
 import requests
+import os
 from youtube_to_metube import YouTubeToMeTube
 from youtube_channel_scraper import YouTubeChannelScraper
 
@@ -34,6 +35,91 @@ class WebGUIHandler:
         socketio.emit('log_message', {'message': message, 'level': level})
         print(f"[{level.upper()}] {message}")
     
+    def get_file_size_from_disk(self, metube_url, filename, filepath=None):
+        """Try to get actual file size by checking the filesystem directly."""
+        try:
+            # First try to get the download directory from MeTube
+            info_url = f"{metube_url.rstrip('/')}/info"
+            response = self.session.get(info_url)
+            
+            download_dir = None
+            if response.status_code == 200:
+                info_data = response.json()
+                download_dir = info_data.get('download_dir')
+            
+            # Common MeTube download directories to try
+            common_dirs = [
+                download_dir if download_dir else None,
+                '/downloads',
+                './downloads',
+                'downloads',
+                '/app/downloads',
+                '/data/downloads'
+            ]
+            
+            # Remove None values
+            common_dirs = [d for d in common_dirs if d]
+            
+            # Try to find the file in various locations
+            possible_paths = []
+            for base_dir in common_dirs:
+                if filepath:
+                    # Try with the full filepath
+                    possible_paths.append(os.path.join(base_dir, filepath))
+                if filename:
+                    # Try with just the filename
+                    possible_paths.append(os.path.join(base_dir, filename))
+                    # Try in a subdirectory based on the filepath
+                    if filepath and '/' in filepath:
+                        subfolder = filepath.split('/')[0]
+                        possible_paths.append(os.path.join(base_dir, subfolder, filename))
+            
+            # Try to get file size via MeTube's file listing API
+            try:
+                files_url = f"{metube_url.rstrip('/')}/files"
+                files_response = self.session.get(files_url)
+                
+                if files_response.status_code == 200:
+                    files_data = files_response.json()
+                    if isinstance(files_data, dict) and 'files' in files_data:
+                        for file_info in files_data['files']:
+                            file_name = file_info.get('name', '')
+                            file_path = file_info.get('path', '')
+                            file_size = file_info.get('size')
+                            
+                            # Check if this matches our target file
+                            if (filename and file_name == filename) or \
+                               (filepath and file_path == filepath) or \
+                               (filename and filepath and file_path.endswith(filename)):
+                                if file_size and file_size > 0:
+                                    return file_size
+                
+            except Exception:
+                pass
+            
+            # If MeTube API doesn't work, try a direct file stat request
+            # This works if MeTube serves files directly
+            try:
+                if filepath:
+                    file_url = f"{metube_url.rstrip('/')}/download/{filepath}"
+                else:
+                    file_url = f"{metube_url.rstrip('/')}/download/{filename}"
+                
+                # Use HEAD request to get file size without downloading
+                head_response = self.session.head(file_url)
+                if head_response.status_code == 200:
+                    content_length = head_response.headers.get('Content-Length')
+                    if content_length:
+                        return int(content_length)
+            except Exception:
+                pass
+                            
+        except Exception as e:
+            # Silently fail - this is just a best-effort attempt
+            pass
+        
+        return None
+    
     def get_downloaded_videos(self, metube_url):
         """Get list of currently available downloaded videos from MeTube."""
         try:
@@ -51,11 +137,17 @@ class WebGUIHandler:
                 # Check if there's a 'done' section in current downloads
                 if isinstance(downloads_data, dict) and 'done' in downloads_data:
                     for video in downloads_data['done']:
-                        # Handle missing filesize - try to estimate or mark as unknown
+                        # Handle missing filesize - try to get from file system
                         filesize = video.get('filesize')
                         if filesize is None:
-                            # MeTube sometimes doesn't have filesize, try to estimate or mark clearly
-                            filesize = 'unknown'
+                            # Try to get file size from disk/MeTube's file system
+                            filesize = self.get_file_size_from_disk(
+                                metube_url, 
+                                video.get('filename'), 
+                                video.get('filepath')
+                            )
+                            if filesize is None:
+                                filesize = 'unknown'
                         
                         video_info = {
                             'id': video.get('id'),
@@ -99,6 +191,16 @@ class WebGUIHandler:
                         )
                         
                         if is_valid_download:
+                            # Try to get file size if missing
+                            if filesize is None:
+                                filesize = self.get_file_size_from_disk(
+                                    metube_url,
+                                    filename,
+                                    video.get('filepath')
+                                )
+                                if filesize is None:
+                                    filesize = 'unknown'
+                            
                             video_info = {
                                 'id': video.get('id'),
                                 'title': video.get('title', 'Unknown Title'),
@@ -392,7 +494,7 @@ handler = WebGUIHandler()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index_new.html')
 
 @socketio.on('fetch_videos')
 def handle_fetch_videos(data):
