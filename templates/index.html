@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube to MeTube</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23667eea'><path d='M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,12 22,13.94 21.56,16.83C21.31,18.05 20.46,18.89 19.25,19.14C16.38,19.59 12,19.59 12,19.59C12,19.59 7.62,19.59 4.75,19.14C3.54,18.89 2.69,18.05 2.44,16.83C2,13.94 2,12 2,12C2,12 2,10.06 2.44,7.17C2.69,5.95 3.54,5.11 4.75,4.86C7.62,4.41 12,4.41 12,4.41C12,4.41 16.38,4.41 19.25,4.86C20.46,5.11 21.31,5.95 21.56,7.17Z'/></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         * {
@@ -172,8 +173,195 @@
             transition: background 0.2s ease;
         }
         
-        .video-item:hover {
+        .downloaded-video-item {
+            padding: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto auto;
+            gap: 15px;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+        
+        .channel-section {
+            background: white;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .channel-header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            color: white;
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+        
+        .channel-header:hover {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        }
+        
+        .channel-header.collapsed {
+            border-bottom: none;
+        }
+        
+        .channel-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .channel-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .channel-details h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .channel-stats {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+        
+        .channel-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .channel-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        
+        .channel-toggle:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .channel-videos {
             background: #f8fafc;
+            max-height: 500px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+        
+        .channel-videos.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        
+        .channel-video-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto auto;
+            gap: 15px;
+            align-items: center;
+            background: white;
+            transition: background 0.2s ease;
+        }
+        
+        .channel-video-item:hover {
+            background: #f1f5f9;
+        }
+        
+        .channel-video-item:last-child {
+            border-bottom: none;
+        }
+        
+        .channel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .btn-channel {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-channel-danger {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .btn-channel-danger:hover {
+            background: #feb2b2;
+        }
+        
+        .channel-summary {
+            background: #edf2f7;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+        
+        .summary-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .video-item:hover, .downloaded-video-item:hover {
+            background: #f8fafc;
+        }
+        
+        .video-filesize {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            min-width: auto;
         }
         
         .video-item:last-child {
@@ -493,6 +681,45 @@
                 </div>
             </div>
             
+            <!-- Downloaded Videos Management Section -->
+            <div class="videos-section">
+                <h3>Downloaded Videos by Channel</h3>
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-warning" id="fetch-downloaded-btn" onclick="fetchDownloadedVideos()">Fetch Downloaded Videos</button>
+                    <button class="btn" id="expand-all-btn" onclick="expandAllChannels()" style="display: none;">Expand All</button>
+                    <button class="btn" id="collapse-all-btn" onclick="collapseAllChannels()" style="display: none;">Collapse All</button>
+                    <button class="btn btn-danger" id="delete-all-btn" onclick="deleteAllVideos()" style="display: none;" disabled>Delete All</button>
+                    <button class="btn" id="clear-history-btn" onclick="clearMetubeHistory()">Clear History</button>
+                </div>
+                
+                <!-- Channel Statistics Overview -->
+                <div id="channels-overview" style="display: none;">
+                    <div class="summary-stats">
+                        <div class="stat-card">
+                            <div class="stat-number stat-total" id="total-channels">0</div>
+                            <div>Channels</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number stat-success" id="total-videos">0</div>
+                            <div>Videos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number stat-total" id="total-size">0</div>
+                            <div>Total Size</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="downloaded-channels-container">
+                    <div class="empty-state" id="empty-channels-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/>
+                        </svg>
+                        <p>No downloaded videos loaded. Click "Fetch Downloaded Videos" to see your MeTube downloads organized by channel.</p>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Output Section -->
             <div class="output-section">
                 <h3>Output Log</h3>
@@ -504,6 +731,7 @@
     <script>
         const socket = io();
         let currentVideos = [];
+        let downloadedVideos = [];
         let isRunning = false;
 
         // Socket event handlers
@@ -543,6 +771,29 @@
 
         socket.on('error', function(data) {
             addLogEntry(data.message, 'error');
+        });
+
+        socket.on('downloaded_videos', function(data) {
+            displayDownloadedVideos(data.videos);
+        });
+
+        socket.on('video_deleted', function(data) {
+            if (data.success) {
+                removeDownloadedVideo(data.video_id);
+                addLogEntry('Video deleted successfully', 'info');
+            } else {
+                addLogEntry('Failed to delete video', 'error');
+            }
+        });
+
+        socket.on('history_cleared', function(data) {
+            if (data.success) {
+                addLogEntry('MeTube history cleared successfully', 'info');
+                // Refresh the downloaded videos list
+                fetchDownloadedVideos();
+            } else {
+                addLogEntry('Failed to clear MeTube history or feature not available', 'warning');
+            }
         });
 
         // UI Functions
@@ -752,6 +1003,469 @@
         function selectNoneVideos() {
             currentVideos.forEach((video, index) => {
                 document.getElementById(`video-${index}`).checked = false;
+            });
+        }
+
+        // Downloaded videos management functions
+        function fetchDownloadedVideos() {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            socket.emit('fetch_downloaded', {
+                metube_url: metubeUrl
+            });
+        }
+
+        function extractVideoId(url) {
+            if (!url) return '';
+            const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            return match ? match[1] : '';
+        }
+
+        function displayDownloadedVideos(videos) {
+            downloadedVideos = videos;
+            const container = document.getElementById('downloaded-channels-container');
+            const emptyState = document.getElementById('empty-channels-state');
+            const overview = document.getElementById('channels-overview');
+            
+            if (videos.length === 0) {
+                container.innerHTML = '';
+                container.appendChild(emptyState);
+                overview.style.display = 'none';
+                hideChannelControls();
+                return;
+            }
+
+            // Group videos by channel
+            const channelGroups = groupVideosByChannel(videos);
+            
+            // Show overview and controls
+            updateChannelOverview(channelGroups, videos);
+            showChannelControls();
+            
+            // Clear container and hide empty state
+            emptyState.remove();
+            container.innerHTML = '';
+            
+            // Create channel sections
+            Object.keys(channelGroups).forEach(channelName => {
+                const channelVideos = channelGroups[channelName];
+                const channelSection = createChannelSection(channelName, channelVideos);
+                container.appendChild(channelSection);
+            });
+        }
+
+        function groupVideosByChannel(videos) {
+            const groups = {};
+            
+            videos.forEach(video => {
+                // Extract channel name from filepath or use "Unknown Channel"
+                let channelName = 'Unknown Channel';
+                const filepath = video.filepath || video.filename;
+                
+                // If filepath contains a folder structure, extract channel name
+                if (filepath && filepath.includes('/')) {
+                    channelName = filepath.split('/')[0];
+                } else if (video.folder) {
+                    channelName = video.folder;
+                }
+                
+                if (!groups[channelName]) {
+                    groups[channelName] = [];
+                }
+                groups[channelName].push(video);
+            });
+            
+            return groups;
+        }
+
+        function createChannelSection(channelName, videos) {
+            const section = document.createElement('div');
+            section.className = 'channel-section';
+            section.id = `channel-${channelName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+            
+            const totalSize = videos.reduce((sum, v) => sum + (v.filesize || 0), 0);
+            const channelInitials = getChannelInitials(channelName);
+            const avatarColor = getChannelColor(channelName);
+            
+            section.innerHTML = `
+                <div class="channel-header" onclick="toggleChannel('${section.id}')">
+                    <div class="channel-info">
+                        <div class="channel-avatar" style="background: ${avatarColor}">
+                            ${channelInitials}
+                        </div>
+                        <div class="channel-details">
+                            <h3>${channelName}</h3>
+                            <div class="channel-stats">
+                                ${videos.length} video${videos.length !== 1 ? 's' : ''} • ${formatFileSize(totalSize)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="channel-controls">
+                        <button class="btn-channel btn-channel-danger" onclick="deleteChannelVideos(event, '${channelName}')" title="Delete all videos from this channel">
+                            Delete All
+                        </button>
+                        <button class="channel-toggle" id="toggle-${section.id}">
+                            ▼
+                        </button>
+                    </div>
+                </div>
+                <div class="channel-videos" id="videos-${section.id}">
+                    ${videos.map(video => createVideoItem(video)).join('')}
+                </div>
+                <div class="channel-summary">
+                    <div class="summary-item">
+                        <div class="summary-number">${videos.length}</div>
+                        <div class="summary-label">Videos</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number">${formatFileSize(totalSize)}</div>
+                        <div class="summary-label">Total Size</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number">${getLatestDate(videos)}</div>
+                        <div class="summary-label">Latest</div>
+                    </div>
+                </div>
+            `;
+            
+            return section;
+        }
+
+        function createVideoItem(video) {
+            const filesize = formatFileSize(video.filesize);
+            const timestamp = formatTimestamp(video.timestamp);
+            const filepath = video.filepath || video.filename;
+            const videoId = extractVideoId(video.url);
+            
+            let thumbnailHtml = '';
+            if (videoId) {
+                const thumbnailUrls = [
+                    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+                    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+                ];
+                thumbnailHtml = `<img class="video-thumbnail" src="${thumbnailUrls[0]}" 
+                                onerror="this.onerror=null; this.src='${thumbnailUrls[1]}'" 
+                                alt="Video thumbnail">`;
+            } else {
+                thumbnailHtml = '<div class="thumbnail-placeholder">No thumbnail</div>';
+            }
+            
+            return `
+                <div class="channel-video-item" id="downloaded-${video.id}">
+                    ${thumbnailHtml}
+                    <div class="video-info">
+                        <div class="video-title">${video.title}</div>
+                        <a href="${video.url}" target="_blank" class="video-url">${video.url}</a>
+                        <div style="font-size: 12px; color: #718096; margin-top: 4px;">
+                            Downloaded: ${timestamp}
+                        </div>
+                    </div>
+                    <div class="video-filesize">${filesize}</div>
+                    <div class="channel-actions">
+                        <button class="btn btn-danger btn-small" onclick="deleteVideo('${video.id}', '${video.filename}', '${filepath}')">
+                            Delete
+                        </button>
+                    </div>
+                    <span class="video-status status-pending" id="delete-status-${video.id}"></span>
+                </div>
+            `;
+        }
+
+        function deleteVideo(videoId, filename, filepath) {
+            const displayName = filepath && filepath !== filename ? filepath : filename;
+            if (!confirm(`Are you sure you want to delete "${displayName}"?`)) {
+                return;
+            }
+
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            socket.emit('delete_video', {
+                metube_url: metubeUrl,
+                video_id: videoId,
+                filename: filename,
+                filepath: filepath || filename
+            });
+        }
+
+        function removeDownloadedVideo(videoId) {
+            const videoElement = document.getElementById(`downloaded-${videoId}`);
+            if (videoElement) {
+                videoElement.remove();
+            }
+            
+            // Update downloaded videos array
+            downloadedVideos = downloadedVideos.filter(video => video.id !== videoId);
+            
+            // Hide delete all button if no videos left
+            if (downloadedVideos.length === 0) {
+                const deleteAllBtn = document.getElementById('delete-all-btn');
+                deleteAllBtn.style.display = 'none';
+                
+                // Show empty state
+                const downloadedList = document.getElementById('downloaded-videos-list');
+                downloadedList.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z"/>
+                        </svg>
+                        <p>All videos have been deleted.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function deleteAllVideos() {
+            if (!confirm(`Are you sure you want to delete ALL ${downloadedVideos.length} downloaded videos? This cannot be undone!`)) {
+                return;
+            }
+
+            downloadedVideos.forEach(video => {
+                deleteVideo(video.id, video.filename, video.filepath || video.filename);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0 || bytes === null || bytes === undefined || bytes === 'unknown') {
+                return 'Size Unknown';
+            }
+            
+            if (typeof bytes === 'string') {
+                if (bytes === 'unknown') return 'Size Unknown';
+                bytes = parseFloat(bytes);
+                if (isNaN(bytes)) return 'Size Unknown';
+            }
+            
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp || timestamp === 'Unknown' || timestamp === null || timestamp === undefined) {
+                return 'Unknown';
+            }
+            
+            // Handle different timestamp formats
+            let date;
+            if (typeof timestamp === 'string') {
+                // Try parsing ISO string first
+                date = new Date(timestamp);
+                if (isNaN(date.getTime())) {
+                    // Try parsing as number if string parsing fails
+                    const numTimestamp = parseFloat(timestamp);
+                    if (!isNaN(numTimestamp)) {
+                        date = convertTimestampToDate(numTimestamp);
+                    }
+                }
+            } else if (typeof timestamp === 'number') {
+                date = convertTimestampToDate(timestamp);
+            } else {
+                return 'Unknown';
+            }
+            
+            if (isNaN(date.getTime())) {
+                console.warn('Could not parse timestamp:', timestamp);
+                return 'Unknown';
+            }
+            
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        function convertTimestampToDate(timestamp) {
+            // Handle different timestamp precisions
+            if (timestamp > 1000000000000000000) {
+                // Nanoseconds (like 1754959554781207300)
+                // Convert nanoseconds to milliseconds by dividing by 1,000,000
+                return new Date(timestamp / 1000000);
+            } else if (timestamp > 1000000000000) {
+                // Milliseconds  
+                return new Date(timestamp);
+            } else {
+                // Seconds
+                return new Date(timestamp * 1000);
+            }
+        }
+
+        function clearMetubeHistory() {
+            const metubeUrl = document.getElementById('metube-url').value.trim();
+            if (!metubeUrl) {
+                alert('Please enter a MeTube URL');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to clear the entire MeTube download history? This cannot be undone!')) {
+                return;
+            }
+
+            socket.emit('clear_history', {
+                metube_url: metubeUrl
+            });
+        }
+
+        // Channel management helper functions
+        function getChannelInitials(channelName) {
+            return channelName
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase())
+                .join('')
+                .substring(0, 2);
+        }
+
+        function getChannelColor(channelName) {
+            const colors = [
+                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe',
+                '#43e97b', '#fa709a', '#fee140', '#a8edea', '#d299c2'
+            ];
+            let hash = 0;
+            for (let i = 0; i < channelName.length; i++) {
+                hash = channelName.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return colors[Math.abs(hash) % colors.length];
+        }
+
+        function getLatestDate(videos) {
+            if (videos.length === 0) return 'N/A';
+            
+            // Filter out invalid timestamps and convert to numbers
+            const validTimestamps = videos
+                .map(v => {
+                    let timestamp = v.timestamp;
+                    if (!timestamp) return 0;
+                    
+                    if (typeof timestamp === 'string') {
+                        const parsed = parseFloat(timestamp);
+                        return isNaN(parsed) ? 0 : parsed;
+                    }
+                    return typeof timestamp === 'number' ? timestamp : 0;
+                })
+                .filter(t => t > 0);
+            
+            if (validTimestamps.length === 0) return 'N/A';
+            
+            const latestTimestamp = Math.max(...validTimestamps);
+            
+            // Use the same timestamp conversion logic
+            const date = convertTimestampToDate(latestTimestamp);
+            
+            if (isNaN(date.getTime())) return 'N/A';
+            
+            return date.toLocaleDateString();
+        }
+
+        function updateChannelOverview(channelGroups, allVideos) {
+            const totalChannels = Object.keys(channelGroups).length;
+            const totalVideos = allVideos.length;
+            
+            // Calculate total size, handling unknown filesizes
+            let totalSize = 0;
+            let hasUnknownSizes = false;
+            
+            allVideos.forEach(v => {
+                if (v.filesize === 'unknown' || v.filesize === null || v.filesize === undefined) {
+                    hasUnknownSizes = true;
+                } else {
+                    const filesize = typeof v.filesize === 'string' ? parseFloat(v.filesize) : (v.filesize || 0);
+                    if (!isNaN(filesize)) {
+                        totalSize += filesize;
+                    } else {
+                        hasUnknownSizes = true;
+                    }
+                }
+            });
+
+
+            document.getElementById('total-channels').textContent = totalChannels;
+            document.getElementById('total-videos').textContent = totalVideos;
+            
+            // Show size with indication if some are unknown
+            if (hasUnknownSizes && totalSize === 0) {
+                document.getElementById('total-size').textContent = 'Sizes Unknown';
+            } else if (hasUnknownSizes) {
+                document.getElementById('total-size').textContent = formatFileSize(totalSize) + '+';
+            } else {
+                document.getElementById('total-size').textContent = formatFileSize(totalSize);
+            }
+            
+            document.getElementById('channels-overview').style.display = 'block';
+        }
+
+        function showChannelControls() {
+            document.getElementById('expand-all-btn').style.display = 'inline-block';
+            document.getElementById('collapse-all-btn').style.display = 'inline-block';
+            document.getElementById('delete-all-btn').style.display = 'inline-block';
+            document.getElementById('delete-all-btn').disabled = false;
+        }
+
+        function hideChannelControls() {
+            document.getElementById('expand-all-btn').style.display = 'none';
+            document.getElementById('collapse-all-btn').style.display = 'none';
+            document.getElementById('delete-all-btn').style.display = 'none';
+        }
+
+        function toggleChannel(sectionId) {
+            const videosContainer = document.getElementById(`videos-${sectionId}`);
+            const toggleButton = document.getElementById(`toggle-${sectionId}`);
+            const header = document.querySelector(`#${sectionId} .channel-header`);
+            
+            if (videosContainer.classList.contains('collapsed')) {
+                videosContainer.classList.remove('collapsed');
+                toggleButton.textContent = '▼';
+                header.classList.remove('collapsed');
+            } else {
+                videosContainer.classList.add('collapsed');
+                toggleButton.textContent = '▶';
+                header.classList.add('collapsed');
+            }
+        }
+
+        function expandAllChannels() {
+            document.querySelectorAll('.channel-videos').forEach(container => {
+                container.classList.remove('collapsed');
+            });
+            document.querySelectorAll('.channel-toggle').forEach(btn => {
+                btn.textContent = '▼';
+            });
+            document.querySelectorAll('.channel-header').forEach(header => {
+                header.classList.remove('collapsed');
+            });
+        }
+
+        function collapseAllChannels() {
+            document.querySelectorAll('.channel-videos').forEach(container => {
+                container.classList.add('collapsed');
+            });
+            document.querySelectorAll('.channel-toggle').forEach(btn => {
+                btn.textContent = '▶';
+            });
+            document.querySelectorAll('.channel-header').forEach(header => {
+                header.classList.add('collapsed');
+            });
+        }
+
+        function deleteChannelVideos(event, channelName) {
+            event.stopPropagation(); // Prevent toggle
+            
+            const channelVideos = downloadedVideos.filter(video => {
+                const filepath = video.filepath || video.filename;
+                const videoChannelName = filepath.includes('/') ? filepath.split('/')[0] : (video.folder || 'Unknown Channel');
+                return videoChannelName === channelName;
+            });
+
+            if (!confirm(`Are you sure you want to delete ALL ${channelVideos.length} videos from "${channelName}"? This cannot be undone!`)) {
+                return;
+            }
+
+            channelVideos.forEach(video => {
+                deleteVideo(video.id, video.filename, video.filepath || video.filename);
             });
         }
 

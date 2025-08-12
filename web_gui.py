@@ -34,6 +34,164 @@ class WebGUIHandler:
         socketio.emit('log_message', {'message': message, 'level': level})
         print(f"[{level.upper()}] {message}")
     
+    def get_downloaded_videos(self, metube_url):
+        """Get list of currently available downloaded videos from MeTube."""
+        try:
+            self.emit_log("Fetching current downloads from MeTube...")
+            
+            # Try to get current status instead of history
+            status_url = f"{metube_url.rstrip('/')}/downloads"
+            response = self.session.get(status_url)
+            
+            if response.status_code == 200:
+                # Use current downloads endpoint if available
+                downloads_data = response.json()
+                downloaded_videos = []
+                
+                # Check if there's a 'done' section in current downloads
+                if isinstance(downloads_data, dict) and 'done' in downloads_data:
+                    for video in downloads_data['done']:
+                        # Handle missing filesize - try to estimate or mark as unknown
+                        filesize = video.get('filesize')
+                        if filesize is None:
+                            # MeTube sometimes doesn't have filesize, try to estimate or mark clearly
+                            filesize = 'unknown'
+                        
+                        video_info = {
+                            'id': video.get('id'),
+                            'title': video.get('title', 'Unknown Title'),
+                            'url': video.get('url'),
+                            'filename': video.get('filename'),
+                            'timestamp': video.get('timestamp'),
+                            'filesize': filesize,
+                            'status': video.get('status'),
+                            'folder': video.get('folder', ''),
+                            'filepath': video.get('filepath', video.get('filename', ''))
+                        }
+                        self.emit_log(f"Video data: {video_info['filename']}, size: {video_info['filesize']}, timestamp: {video_info['timestamp']}", "info")
+                        downloaded_videos.append(video_info)
+                
+                self.emit_log(f"Found {len(downloaded_videos)} currently available videos")
+                return downloaded_videos
+            
+            else:
+                # Fallback to history endpoint with better filtering
+                self.emit_log("Using history endpoint as fallback...")
+                history_url = f"{metube_url.rstrip('/')}/history"
+                response = self.session.get(history_url)
+                response.raise_for_status()
+                
+                history_data = response.json()
+                downloaded_videos = []
+                
+                if 'done' in history_data:
+                    for video in history_data['done']:
+                        # More flexible validation for channel-based folder structure
+                        filename = video.get('filename', '')
+                        filesize = video.get('filesize')
+                        status = video.get('status', '')
+                        
+                        # Check if this appears to be a valid completed download
+                        is_valid_download = (
+                            filename and                    # Has a filename
+                            status not in ['error', 'failed', 'cancelled'] and  # Not failed
+                            (filesize is None or filesize > 0)  # Either no size info or positive size
+                        )
+                        
+                        if is_valid_download:
+                            video_info = {
+                                'id': video.get('id'),
+                                'title': video.get('title', 'Unknown Title'),
+                                'url': video.get('url'),
+                                'filename': filename,
+                                'timestamp': video.get('timestamp'),
+                                'filesize': filesize,
+                                'status': status,
+                                'folder': video.get('folder', ''),  # Channel folder if available
+                                'filepath': video.get('filepath', filename)  # Full path or just filename
+                            }
+                            downloaded_videos.append(video_info)
+                
+                total_history = len(history_data.get('done', []))
+                self.emit_log(f"Found {len(downloaded_videos)} available videos from {total_history} history entries")
+                
+                if len(downloaded_videos) == 0 and total_history > 0:
+                    self.emit_log("All videos in history appear to have been deleted from storage", "warning")
+                
+                return downloaded_videos
+            
+        except Exception as e:
+            self.emit_log(f"Error fetching downloaded videos: {e}", "error")
+            return []
+    
+    def delete_video(self, metube_url, video_id, filename, filepath=None):
+        """Delete a downloaded video from MeTube."""
+        try:
+            display_name = filepath or filename
+            self.emit_log(f"Deleting video: {display_name}")
+            
+            # Use MeTube's delete API
+            delete_url = f"{metube_url.rstrip('/')}/delete"
+            
+            # Try using the full filepath first, then fall back to video_id
+            delete_identifiers = []
+            if filepath and filepath != filename:
+                delete_identifiers.append(filepath)
+            if video_id:
+                delete_identifiers.append(video_id)
+            if filename:
+                delete_identifiers.append(filename)
+            
+            # Try each identifier until one works
+            for identifier in delete_identifiers:
+                try:
+                    data = {
+                        "ids": [identifier],
+                        "where": "done"
+                    }
+                    
+                    response = self.session.post(delete_url, json=data)
+                    response.raise_for_status()
+                    
+                    result = response.json()
+                    if result.get('status') == 'ok':
+                        self.emit_log(f"Successfully deleted: {display_name}")
+                        return True
+                except Exception as delete_error:
+                    self.emit_log(f"Delete attempt with {identifier} failed: {delete_error}", "warning")
+                    continue
+            
+            self.emit_log(f"All delete attempts failed for: {display_name}", "error")
+            return False
+                
+        except Exception as e:
+            self.emit_log(f"Error deleting video {filename}: {e}", "error")
+            return False
+    
+    def clear_metube_history(self, metube_url):
+        """Clear MeTube download history."""
+        try:
+            self.emit_log("Clearing MeTube download history...")
+            
+            # Use MeTube's clear/clean endpoint if available
+            clear_url = f"{metube_url.rstrip('/')}/clear"
+            response = self.session.post(clear_url)
+            
+            if response.status_code in [200, 201, 404]:  # 404 means endpoint doesn't exist
+                if response.status_code == 404:
+                    self.emit_log("Clear endpoint not available on this MeTube version", "warning")
+                    return False
+                else:
+                    self.emit_log("Successfully cleared MeTube history")
+                    return True
+            else:
+                self.emit_log(f"Failed to clear history: {response.status_code}", "error")
+                return False
+                
+        except Exception as e:
+            self.emit_log(f"Error clearing history: {e}", "error")
+            return False
+    
     def fetch_videos(self, channel_url, count, filter_content):
         """Fetch videos from YouTube channel."""
         try:
@@ -315,9 +473,80 @@ def handle_test_video(data):
     thread.daemon = True
     thread.start()
 
+@socketio.on('fetch_downloaded')
+def handle_fetch_downloaded(data):
+    if handler.is_running:
+        emit('error', {'message': 'Operation already in progress'})
+        return
+    
+    handler.is_running = True
+    emit('operation_started')
+    
+    def fetch_downloaded_thread():
+        try:
+            videos = handler.get_downloaded_videos(data['metube_url'])
+            socketio.emit('downloaded_videos', {'videos': videos})
+        finally:
+            handler.is_running = False
+            socketio.emit('operation_finished')
+    
+    thread = threading.Thread(target=fetch_downloaded_thread)
+    thread.daemon = True
+    thread.start()
+
+@socketio.on('delete_video')
+def handle_delete_video(data):
+    if handler.is_running:
+        emit('error', {'message': 'Operation already in progress'})
+        return
+    
+    handler.is_running = True
+    emit('operation_started')
+    
+    def delete_video_thread():
+        try:
+            success = handler.delete_video(
+                data['metube_url'],
+                data['video_id'], 
+                data['filename'],
+                data.get('filepath')  # Include filepath for channel-based structure
+            )
+            socketio.emit('video_deleted', {
+                'video_id': data['video_id'],
+                'success': success
+            })
+        finally:
+            handler.is_running = False
+            socketio.emit('operation_finished')
+    
+    thread = threading.Thread(target=delete_video_thread)
+    thread.daemon = True
+    thread.start()
+
+@socketio.on('clear_history')
+def handle_clear_history(data):
+    if handler.is_running:
+        emit('error', {'message': 'Operation already in progress'})
+        return
+    
+    handler.is_running = True
+    emit('operation_started')
+    
+    def clear_history_thread():
+        try:
+            success = handler.clear_metube_history(data['metube_url'])
+            socketio.emit('history_cleared', {'success': success})
+        finally:
+            handler.is_running = False
+            socketio.emit('operation_finished')
+    
+    thread = threading.Thread(target=clear_history_thread)
+    thread.daemon = True
+    thread.start()
+
 @socketio.on('connect')
 def handle_connect():
     emit('connected', {'data': 'Connected to YouTube to MeTube server'})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
